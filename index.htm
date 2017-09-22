@@ -1,0 +1,242 @@
+﻿<html>
+<head>
+<title>DataAquisitionDebug.mq5</title>
+</head>
+<body>
+<style>
+   body       { color: #000000; background: #ffffff; font-family: "Courier New"; font-size: 13px; }
+   .keyword   { color: #0000ff; }
+   .comment   { color: #808080; }
+   .number    { color: #008000; }
+   .operator  { color: #000080; }
+   .string    { color: #008080; }
+   .macro     { color: #333399; }
+   .function  { color: #8a2be2; }
+   .indicator { color: #008000; }
+   .predefine { color: #ff00ff; }
+   .input     { color: #b22222; }
+   .nonascii  { color: #ff1493; }
+</style>
+<pre>
+<font class=comment>//+------------------------------------------------------------------+
+//|                                             DataAquisitionV1.mq5 |
+//|                        Copyright 2017, MetaQuotes Software Corp. |
+//|                                             https://www.mql5.com |
+//+------------------------------------------------------------------+
+</font><font class=keyword>#property </font><font class=macro>copyright </font><font class=string>"Copyright 2017, MetaQuotes Software Corp."
+</font><font class=keyword>#property </font><font class=macro>link      </font><font class=string>"https://www.mql5.com"
+</font><font class=keyword>#property </font><font class=macro>version   </font><font class=string>"1.00"
+
+</font><font class=comment>//--- show the window of input parameters when launching the script
+</font><font class=keyword>#property </font><font class=macro>script_show_inputs
+
+</font><font class=keyword>#define </font>TIMEOUT <font class=number>300000
+</font><font class=comment>//--- parameters for receiving data from the terminal
+</font><font class=keyword>input </font><font class=macro>ENUM_TIMEFRAMES </font><font class=input>InpSymbolPeriod</font><font class=operator>=</font><font class=macro>PERIOD_D1</font><font class=operator>;        </font><font class=comment>// timeframe
+</font><font class=keyword>input datetime        </font><font class=input>InpDateStart</font><font class=operator>=</font><font class=string>D'2007.06.01'</font><font class=operator>;       </font><font class=comment>// data copying start date
+//--- parameters for writing data to the file
+</font><font class=keyword>input string          </font><font class=input>InpSymbolNamesFile</font><font class=operator>=</font><font class=string>"MT5-XMGlobalBroker-Stocks.txt"</font><font class=operator>;
+</font><font class=keyword>input string          </font><font class=input>InpDirectoryName</font><font class=operator>=</font><font class=string>"Stocks"</font><font class=operator>;  </font><font class=comment>// directory name
+//+------------------------------------------------------------------+
+//| Struct for storing candlestick data                              |
+//+------------------------------------------------------------------+
+</font><font class=keyword>struct </font>candlestick
+<font class=operator>{
+</font>   <font class=keyword>double </font>open<font class=operator>;   </font><font class=comment>// open price
+</font>   <font class=keyword>double </font>close<font class=operator>;  </font><font class=comment>// close price
+</font>   <font class=keyword>double </font>high<font class=operator>;   </font><font class=comment>// high price
+</font>   <font class=keyword>double </font>low<font class=operator>;    </font><font class=comment>// low price
+</font>   <font class=keyword>long </font>vol<font class=operator>;       </font><font class=comment>// real volume
+</font>   <font class=keyword>datetime </font>date<font class=operator>; </font><font class=comment>// datetime
+</font><font class=operator>};
+</font><font class=comment>//+------------------------------------------------------------------+
+//| Script program start function                                    |
+//+------------------------------------------------------------------+
+</font><font class=keyword>void </font><font class=function>OnStart</font><font class=operator>()
+{
+</font>   <font class=comment>//datetime dateFinish=TimeCurrent();
+</font>   <font class=keyword>datetime </font>dateFinish<font class=operator>=</font><font class=string>D'2017.09.08'</font><font class=operator>;
+</font>   <font class=keyword>string </font>symbolName<font class=operator>;
+</font>   <font class=keyword>int </font>symNamesFile <font class=operator>= </font><font class=function>FileOpen</font><font class=operator>(</font><font class=input>InpSymbolNamesFile</font><font class=operator>,</font><font class=macro>FILE_READ</font><font class=operator>|</font><font class=macro>FILE_COMMON</font><font class=operator>|</font><font class=macro>FILE_ANSI</font><font class=operator>);
+</font>   <font class=keyword>if</font><font class=operator>(</font>symNamesFile <font class=operator>!= </font><font class=macro>INVALID_HANDLE</font><font class=operator>)
+</font>   <font class=operator>{
+</font>      <font class=keyword>do
+</font>      <font class=operator>{
+</font>         <font class=keyword>int </font>size<font class=operator>;
+</font>         <font class=keyword>uint </font>startTime<font class=operator>, </font>timeElapsed <font class=operator>= </font><font class=number>0</font><font class=operator>;
+</font>         <font class=keyword>datetime </font>timeBuff<font class=operator>[];
+</font>         <font class=keyword>double </font>openBuff<font class=operator>[];
+</font>         <font class=keyword>double </font>closeBuff<font class=operator>[];
+</font>         <font class=keyword>double </font>highBuff<font class=operator>[];
+</font>         <font class=keyword>double </font>lowBuff<font class=operator>[];
+</font>         <font class=keyword>long </font>volBuff<font class=operator>[];
+</font>         candlestick candBuff<font class=operator>[];
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>timeBuff<font class=operator>);
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>openBuff<font class=operator>);
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>closeBuff<font class=operator>);
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>highBuff<font class=operator>);
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>lowBuff<font class=operator>);
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>volBuff<font class=operator>);
+</font>         <font class=function>ZeroMemory</font><font class=operator>(</font>candBuff<font class=operator>);
+</font>         symbolName <font class=operator>= </font><font class=function>FileReadString</font><font class=operator>(</font>symNamesFile<font class=operator>);
+</font>         <font class=keyword>if</font><font class=operator>(</font><font class=function>StringLen</font><font class=operator>(</font>symbolName<font class=operator>) != </font><font class=number>0</font><font class=operator>)
+</font>         <font class=operator>{
+</font>            <font class=keyword>string </font>fileName <font class=operator>= </font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%s.csv"</font><font class=operator>,</font>symbolName<font class=operator>);
+</font><font class=comment>//--- reset the error value
+</font>            <font class=function>ResetLastError</font><font class=operator>();
+</font><font class=comment>//--- receive the time of the arrival of the bars from the range
+</font>            startTime <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>();
+</font>            <font class=function>Print</font><font class=operator>(</font><font class=string>"Fetching data..."</font><font class=operator>);
+</font>            <font class=keyword>int </font>copyTime <font class=operator>= </font><font class=function>CopyTime</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>timeBuff<font class=operator>);
+</font>            <font class=keyword>do
+</font>            <font class=operator>{
+</font>               timeElapsed <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>() - </font>startTime<font class=operator>;
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Time buffer size: %d"</font><font class=operator>,</font><font class=function>ArraySize</font><font class=operator>(</font>timeBuff<font class=operator>));
+</font>               copyTime <font class=operator>= </font><font class=function>CopyTime</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>timeBuff<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>while</font><font class=operator>(</font>copyTime <font class=operator>== -</font><font class=number>1 </font><font class=operator>&amp;&amp; </font>timeElapsed <font class=operator>&lt; </font>TIMEOUT<font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>timeElapsed <font class=operator>&gt;= </font>TIMEOUT<font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to copy time values of %s. Error code = %d"</font><font class=operator>,</font>symbolName<font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font><font class=comment>//--- receive high prices of the bars from the range
+</font>            startTime <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>();
+</font>            <font class=function>Print</font><font class=operator>(</font><font class=string>"Fetching data..."</font><font class=operator>);
+</font>            <font class=keyword>int </font>copyHigh <font class=operator>= </font><font class=function>CopyHigh</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>highBuff<font class=operator>);
+</font>            <font class=keyword>do
+</font>            <font class=operator>{
+</font>               timeElapsed <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>() - </font>startTime<font class=operator>;
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"High buffer size: %d"</font><font class=operator>,</font><font class=function>ArraySize</font><font class=operator>(</font>highBuff<font class=operator>));
+</font>               copyHigh <font class=operator>= </font><font class=function>CopyHigh</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>highBuff<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>while</font><font class=operator>(</font>copyHigh <font class=operator>== -</font><font class=number>1 </font><font class=operator>&amp;&amp; </font>timeElapsed <font class=operator>&lt; </font>TIMEOUT<font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>timeElapsed <font class=operator>&gt;= </font>TIMEOUT<font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to copy values of high prices. Error code = %d"</font><font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font><font class=comment>//--- receive low prices of the bars from the range
+</font>            startTime <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>();
+</font>            <font class=function>Print</font><font class=operator>(</font><font class=string>"Fetching data..."</font><font class=operator>);
+</font>            <font class=keyword>int </font>copyLow <font class=operator>= </font><font class=function>CopyLow</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>lowBuff<font class=operator>);
+</font>            <font class=keyword>do
+</font>            <font class=operator>{
+</font>               timeElapsed <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>() - </font>startTime<font class=operator>;
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Low buffer size: %d"</font><font class=operator>,</font><font class=function>ArraySize</font><font class=operator>(</font>lowBuff<font class=operator>));
+</font>               copyLow <font class=operator>= </font><font class=function>CopyLow</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>lowBuff<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>while</font><font class=operator>(</font>copyLow <font class=operator>== -</font><font class=number>1 </font><font class=operator>&amp;&amp; </font>timeElapsed <font class=operator>&lt; </font>TIMEOUT<font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>timeElapsed <font class=operator>&gt;= </font>TIMEOUT<font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to copy values of low prices. Error code = %d"</font><font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font><font class=comment>//--- receive open prices of the bars from the range
+</font>            startTime <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>();
+</font>            <font class=function>Print</font><font class=operator>(</font><font class=string>"Fetching data..."</font><font class=operator>);
+</font>            <font class=keyword>int </font>copyOpen <font class=operator>= </font><font class=function>CopyOpen</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>openBuff<font class=operator>);
+</font>            <font class=keyword>do
+</font>            <font class=operator>{
+</font>               timeElapsed <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>() - </font>startTime<font class=operator>;
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Open buffer size: %d"</font><font class=operator>,</font><font class=function>ArraySize</font><font class=operator>(</font>openBuff<font class=operator>));
+</font>               copyOpen <font class=operator>= </font><font class=function>CopyOpen</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>openBuff<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>while</font><font class=operator>(</font>copyOpen <font class=operator>== -</font><font class=number>1 </font><font class=operator>&amp;&amp; </font>timeElapsed <font class=operator>&lt; </font>TIMEOUT<font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>timeElapsed <font class=operator>&gt;= </font>TIMEOUT<font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to copy values of open prices. Error code = %d"</font><font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font><font class=comment>//--- receive close prices of the bars from the range
+</font>            startTime <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>();
+</font>            <font class=function>Print</font><font class=operator>(</font><font class=string>"Fetching data..."</font><font class=operator>);
+</font>            <font class=keyword>int </font>copyClose <font class=operator>= </font><font class=function>CopyClose</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>closeBuff<font class=operator>);
+</font>            <font class=keyword>do
+</font>            <font class=operator>{
+</font>               timeElapsed <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>() - </font>startTime<font class=operator>;
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Close buffer size: %d"</font><font class=operator>,</font><font class=function>ArraySize</font><font class=operator>(</font>closeBuff<font class=operator>));
+</font>               copyClose <font class=operator>= </font><font class=function>CopyClose</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>closeBuff<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>while</font><font class=operator>(</font>copyClose <font class=operator>== -</font><font class=number>1 </font><font class=operator>&amp;&amp; </font>timeElapsed <font class=operator>&lt; </font>TIMEOUT<font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>timeElapsed <font class=operator>&gt;= </font>TIMEOUT<font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to copy values of close prices. Error code = %d"</font><font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font><font class=comment>//--- receive real volumes of the bars from the range
+</font>            startTime <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>();
+</font>            <font class=function>Print</font><font class=operator>(</font><font class=string>"Fetching data..."</font><font class=operator>);
+</font>            <font class=keyword>int </font>copyRealVolume <font class=operator>= </font><font class=function>CopyRealVolume</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>volBuff<font class=operator>);
+</font>            <font class=keyword>do
+</font>            <font class=operator>{
+</font>               timeElapsed <font class=operator>= </font><font class=function>GetTickCount</font><font class=operator>() - </font>startTime<font class=operator>;
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Volume buffer size: %d"</font><font class=operator>,</font><font class=function>ArraySize</font><font class=operator>(</font>volBuff<font class=operator>));
+</font>               copyRealVolume <font class=operator>= </font><font class=function>CopyRealVolume</font><font class=operator>(</font>symbolName<font class=operator>,</font><font class=input>InpSymbolPeriod</font><font class=operator>,</font><font class=input>InpDateStart</font><font class=operator>,</font>dateFinish<font class=operator>,</font>volBuff<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>while</font><font class=operator>(</font>copyRealVolume <font class=operator>== -</font><font class=number>1 </font><font class=operator>&amp;&amp; </font>timeElapsed <font class=operator>&lt; </font>TIMEOUT<font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>timeElapsed <font class=operator>&gt;= </font>TIMEOUT<font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to copy values of close prices. Error code = %d"</font><font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font><font class=comment>//--- define dimension of the arrays
+</font>            size<font class=operator>=</font><font class=function>ArraySize</font><font class=operator>(</font>closeBuff<font class=operator>);
+</font><font class=comment>//--- save all data in the structure array
+</font>            <font class=function>ArrayResize</font><font class=operator>(</font>candBuff<font class=operator>,</font>size<font class=operator>);
+</font>            <font class=keyword>for</font><font class=operator>(</font><font class=keyword>int </font>i<font class=operator>=</font><font class=number>0</font><font class=operator>; </font>i<font class=operator>&lt;</font>size<font class=operator>; </font>i<font class=operator>++)
+</font>            <font class=operator>{
+</font>               candBuff<font class=operator>[</font>i<font class=operator>]</font>.open<font class=operator>=</font>openBuff<font class=operator>[</font>i<font class=operator>];
+</font>               candBuff<font class=operator>[</font>i<font class=operator>]</font>.close<font class=operator>=</font>closeBuff<font class=operator>[</font>i<font class=operator>];
+</font>               candBuff<font class=operator>[</font>i<font class=operator>]</font>.high<font class=operator>=</font>highBuff<font class=operator>[</font>i<font class=operator>];
+</font>               candBuff<font class=operator>[</font>i<font class=operator>]</font>.low<font class=operator>=</font>lowBuff<font class=operator>[</font>i<font class=operator>];
+</font>               candBuff<font class=operator>[</font>i<font class=operator>]</font>.vol<font class=operator>=</font>volBuff<font class=operator>[</font>i<font class=operator>];
+</font>               candBuff<font class=operator>[</font>i<font class=operator>]</font>.date<font class=operator>=</font>timeBuff<font class=operator>[</font>i<font class=operator>];
+</font>            <font class=operator>}
+</font><font class=comment>//--- open the file for writing the structure array to the file (if the file is absent, it
+//--- will be created automatically)
+</font>            <font class=function>ResetLastError</font><font class=operator>();
+</font>            <font class=keyword>int </font>fileHandle <font class=operator>= </font><font class=function>FileOpen</font><font class=operator>(</font><font class=input>InpDirectoryName</font><font class=operator>+</font><font class=string>"\\"</font><font class=operator>+</font>fileName<font class=operator>,</font><font class=macro>FILE_WRITE</font><font class=operator>|</font><font class=macro>FILE_COMMON</font><font class=operator>);
+</font>            <font class=keyword>if</font><font class=operator>(</font>fileHandle<font class=operator>!=</font><font class=macro>INVALID_HANDLE</font><font class=operator>)
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"File %s is open for writing..."</font><font class=operator>,</font>fileName<font class=operator>);
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"File path: %s\\Files\\"</font><font class=operator>,</font><font class=function>TerminalInfoString</font><font class=operator>(</font><font class=macro>TERMINAL_COMMONDATA_PATH</font><font class=operator>));
+</font>               <font class=comment>//--- prepare the couter of the number of bytes
+</font>               <font class=keyword>uint </font>counter<font class=operator>=</font><font class=number>0</font><font class=operator>;
+</font>               <font class=comment>//--- write header at the first line of the file
+</font>               counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>, </font><font class=string>"DATA,ABERTURA,FECHAMENTO,ALTA,BAIXA,VOLUME\r\n"</font><font class=operator>);
+</font>               <font class=comment>//--- write array values in the loop
+</font>               <font class=keyword>for</font><font class=operator>(</font><font class=keyword>int </font>i<font class=operator>=</font><font class=number>0</font><font class=operator>; </font>i<font class=operator>&lt;</font>size<font class=operator>; </font>i<font class=operator>++)
+</font>               <font class=operator>{
+</font>                  counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>,</font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%s,"</font><font class=operator>, </font><font class=function>TimeToString</font><font class=operator>(</font>candBuff<font class=operator>[</font>i<font class=operator>]</font>.date<font class=operator>,</font><font class=macro>TIME_DATE</font><font class=operator>)));
+</font>                  counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>,</font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%.2f,"</font><font class=operator>, </font>candBuff<font class=operator>[</font>i<font class=operator>]</font>.open<font class=operator>));
+</font>                  counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>,</font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%.2f,"</font><font class=operator>, </font>candBuff<font class=operator>[</font>i<font class=operator>]</font>.close<font class=operator>));
+</font>                  counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>,</font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%.2f,"</font><font class=operator>, </font>candBuff<font class=operator>[</font>i<font class=operator>]</font>.high<font class=operator>));
+</font>                  counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>,</font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%.2f,"</font><font class=operator>, </font>candBuff<font class=operator>[</font>i<font class=operator>]</font>.low<font class=operator>));
+</font>                  counter<font class=operator>+=</font><font class=function>FileWriteString</font><font class=operator>(</font>fileHandle<font class=operator>,</font><font class=function>StringFormat</font><font class=operator>(</font><font class=string>"%d\r\n"</font><font class=operator>, </font>candBuff<font class=operator>[</font>i<font class=operator>]</font>.vol<font class=operator>)); 
+</font>               <font class=operator>}
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"%d bytes of information is written to file %s."</font><font class=operator>,</font>counter<font class=operator>,</font>fileName<font class=operator>);
+</font>               <font class=comment>//--- close the file
+</font>               <font class=function>FileClose</font><font class=operator>(</font>fileHandle<font class=operator>);
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Data is written, file %s is closed."</font><font class=operator>,</font>fileName<font class=operator>);
+</font>               <font class=function>Sleep</font><font class=operator>(</font><font class=number>500</font><font class=operator>);
+</font>            <font class=operator>}
+</font>            <font class=keyword>else
+</font>            <font class=operator>{
+</font>               <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to open file %s, Error code = %d"</font><font class=operator>,</font>fileName<font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>            <font class=operator>}
+</font>         <font class=operator>}
+</font>      <font class=operator>}
+</font>      <font class=keyword>while</font><font class=operator>(</font><font class=function>StringLen</font><font class=operator>(</font>symbolName<font class=operator>) != </font><font class=number>0</font><font class=operator>); </font><font class=comment>// DO line 48
+</font>   <font class=operator>}
+</font>   <font class=keyword>else
+</font>   <font class=operator>{
+</font>      <font class=function>PrintFormat</font><font class=operator>(</font><font class=string>"Failed to open file %s, Error code = %d"</font><font class=operator>,</font><font class=input>InpSymbolNamesFile</font><font class=operator>,</font><font class=function>GetLastError</font><font class=operator>());
+</font>   <font class=operator>}
+</font>      <font class=function>FileClose</font><font class=operator>(</font>symNamesFile<font class=operator>);
+}
+</font><font class=comment>//+------------------------------------------------------------------+
+
+</font></pre>
+</body>
+</html>
