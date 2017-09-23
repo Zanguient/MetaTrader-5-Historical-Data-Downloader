@@ -15,7 +15,7 @@
 input ENUM_TIMEFRAMES InpSymbolPeriod=PERIOD_D1;        // timeframe
 input datetime        InpDateStart=D'2007.06.01';       // data copying start date
 //--- parameters for writing data to the file
-input string          InpSymbolNamesFile="MT5-XMGlobalBroker-Stocks.txt";
+input string          InpSymbolNamesFile="MT5-XMGlobalBroker-Stocks.txt"; // file with assets names in one column
 input string          InpDirectoryName="Stocks";  // directory name
 //+------------------------------------------------------------------+
 //| Struct for storing candlestick data                              |
