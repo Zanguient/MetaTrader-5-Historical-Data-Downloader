@@ -1,7 +1,6 @@
 ﻿//+------------------------------------------------------------------+
-//|                                             DataAquisitionV1.mq5 |
-//|                        Copyright 2017, MetaQuotes Software Corp. |
-//|                                             https://www.mql5.com |
+//|                        SeniukFS MetaTrader 5 Data Downloader.mq5 |
+//|                          Copyright 2017, Francisco Santos Seniuk |
 //+------------------------------------------------------------------+
 
 //--- show the window of input parameters when launching the script
